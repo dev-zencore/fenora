@@ -42,7 +42,7 @@ git tag v0.1.0
 git push origin main --tags
 ```
 
-Workflow `.github/workflows/android.yml` установит зависимости, сгенерирует нативный Android-проект через Expo Prebuild, соберёт устанавливаемый debug APK через Gradle и создаст GitHub Release с APK и архивом исходников. Для полноценного подписанного production APK/AAB позже можно добавить собственный Android keystore в GitHub Secrets; в репозитории ключи и пароли не хранятся.
+Workflow `.github/workflows/android.yml` установит зависимости, сгенерирует нативный Android-проект через Expo Prebuild, соберёт автономный release APK со встроенным JavaScript-бандлом и временно подпишет его CI-ключом для установки на устройство. GitHub Release будет содержать APK и архив исходников. Для полноценного production APK/AAB позже можно заменить CI-ключ на собственный Android keystore через GitHub Secrets; в репозитории ключи и пароли не хранятся.
 
 ## Конфиденциальность
 
