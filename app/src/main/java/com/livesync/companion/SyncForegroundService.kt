@@ -13,7 +13,7 @@ import androidx.core.app.NotificationCompat
 class SyncForegroundService : Service() {
     companion object { private const val CHANNEL_ID = "livesync_background"; private const val NOTIFICATION_ID = 1001 }
     private val handler = Handler(Looper.getMainLooper())
-    private val statusLoop = object : Runnable { override fun run() { updateNotification("LiveSync host active · core adapter pending"); handler.postDelayed(this, 30_000L) } }
+    private val statusLoop = object : Runnable { override fun run() { updateNotification("LiveSync host active · vault sync available"); handler.postDelayed(this, 30_000L) } }
     override fun onCreate() { super.onCreate(); createChannel(); startForeground(NOTIFICATION_ID, notification("Preparing vault synchronization")) }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int { handler.removeCallbacks(statusLoop); handler.post(statusLoop); return START_STICKY }
     private fun updateNotification(message: String) { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(message)) }
