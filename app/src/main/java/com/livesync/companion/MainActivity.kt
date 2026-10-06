@@ -7,6 +7,11 @@ import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.widget.Button
+import android.widget.FrameLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -17,6 +22,7 @@ import java.io.FileNotFoundException
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
+    private lateinit var chooseButton: Button
     private val prefs by lazy { getSharedPreferences("companion", MODE_PRIVATE) }
     private var pendingPickerCallback: String? = null
     private val pickVault = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
@@ -27,6 +33,8 @@ class MainActivity : AppCompatActivity() {
             prefs.edit().putString("vault_uri", uri.toString()).apply()
             callback?.let { webView.evaluateJavascript("window.__nativeVaultPicked('$it', true)", null) }
             startSyncService()
+            if (::chooseButton.isInitialized) chooseButton.text = "Change vault"
+            webView.reload()
         } else callback?.let { webView.evaluateJavascript("window.__nativeVaultPicked('$it', false)", null) }
     }
 
@@ -43,7 +51,19 @@ class MainActivity : AppCompatActivity() {
             addJavascriptInterface(AndroidFsBridge(), "AndroidBridge")
             setBackgroundColor(0xFF111111.toInt())
         }
-        setContentView(webView)
+        val container = FrameLayout(this)
+        container.addView(webView, FrameLayout.LayoutParams(-1, -1))
+        chooseButton = Button(this).apply {
+            text = if (root() == null) "Choose vault" else "Change vault"
+            setTextColor(Color.WHITE)
+            textSize = 12f
+            isAllCaps = false
+            background = GradientDrawable().apply { setColor(Color.rgb(30, 30, 30)); setStroke(1, Color.rgb(90, 90, 90)); cornerRadius = 14f }
+            setOnClickListener { pendingPickerCallback = null; pickVault.launch(null) }
+        }
+        val buttonParams = FrameLayout.LayoutParams(-2, 48).apply { gravity = Gravity.TOP or Gravity.END; topMargin = 18; rightMargin = 14 }
+        container.addView(chooseButton, buttonParams)
+        setContentView(container)
         webView.loadUrl("file:///android_asset/livesync-webapp/webapp.html")
     }
 
