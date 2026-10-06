@@ -1,0 +1,8 @@
+<resources>
+    <color name="base_background">#111111</color>
+    <color name="base_panel">#1B1B1B</color>
+    <color name="base_border">#343434</color>
+    <color name="base_text">#E7E7E2</color>
+    <color name="base_muted">#969690</color>
+    <color name="base_green">#A6C8A2</color>
+</resources>

@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.LiveSyncCompanion" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#A6C8A2</item>
+        <item name="android:navigationBarColor">#111111</item>
+        <item name="android:statusBarColor">#111111</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
