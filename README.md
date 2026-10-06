@@ -58,3 +58,7 @@ The project is a plain open-source Gradle Android project. Build with JDK 17 and
 ```
 
 The Gradle Wrapper is included. The current sandbox contains Gradle/JDK but no Android SDK, so APK compilation is pending an Android build runner. GitHub Actions is included for reproducible Android builds once this project is pushed to a repository.
+
+## Upstream webapp artifact
+
+A production build of the upstream LiveSync webapp is checked into `app/src/main/assets/livesync-webapp` as an integration reference. It currently expects the browser File System Access API. The Android WebView bridge must replace that API with SAF before this asset can be used as the native sync UI; the native host does not silently claim that browser-only picker works on Android.
