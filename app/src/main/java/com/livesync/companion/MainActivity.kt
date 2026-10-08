@@ -11,12 +11,9 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.widget.Button
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -27,11 +24,8 @@ import java.io.FileNotFoundException
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
-    private lateinit var chooseButton: Button
-    private lateinit var noteButton: Button
     private val prefs by lazy { getSharedPreferences("companion", MODE_PRIVATE) }
     private var pendingPickerCallback: String? = null
-    private var pendingQuickNote = false
     private val pickVault = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         val callback = pendingPickerCallback
         pendingPickerCallback = null
@@ -39,17 +33,13 @@ class MainActivity : AppCompatActivity() {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             prefs.edit().putString("vault_uri", uri.toString()).apply()
             startSyncService()
-            val shouldOpenNote = pendingQuickNote
-            pendingQuickNote = false
             showLiveSyncScreen()
-            if (shouldOpenNote) window.decorView.post { showQuickNoteDialog() }
-        } else callback?.let { webView.evaluateJavascript("window.__nativeVaultPicked('$it', false)", null) }
+        } else if (callback != null && ::webView.isInitialized) webView.evaluateJavascript("window.__nativeVaultPicked('$callback', false)", null)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (root() == null) {
-            pendingQuickNote = intent?.action == ACTION_NEW_NOTE
             showVaultSetupScreen()
             return
         }
@@ -105,86 +95,8 @@ class MainActivity : AppCompatActivity() {
         }
         val container = FrameLayout(this)
         container.addView(webView, FrameLayout.LayoutParams(-1, -1))
-        chooseButton = Button(this).apply {
-            text = if (root() == null) "Choose vault" else "Change vault"
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            isAllCaps = false
-            background = GradientDrawable().apply { setColor(Color.rgb(30, 30, 30)); setStroke(1, Color.rgb(90, 90, 90)); cornerRadius = 14f }
-            setOnClickListener { pendingPickerCallback = null; pickVault.launch(null) }
-        }
-        val buttonParams = FrameLayout.LayoutParams(-2, 48).apply { gravity = Gravity.TOP or Gravity.END; topMargin = 18; rightMargin = 14 }
-        container.addView(chooseButton, buttonParams)
-        noteButton = Button(this).apply {
-            text = "New note"
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            isAllCaps = false
-            background = GradientDrawable().apply { setColor(Color.rgb(30, 30, 30)); setStroke(1, Color.rgb(90, 90, 90)); cornerRadius = 14f }
-            setOnClickListener { openQuickNote() }
-        }
-        val noteParams = FrameLayout.LayoutParams(-2, 48).apply { gravity = Gravity.BOTTOM or Gravity.END; bottomMargin = 24; rightMargin = 14 }
-        container.addView(noteButton, noteParams)
         setContentView(container)
         webView.loadUrl("file:///android_asset/livesync-webapp/webapp.html")
-        if (intent?.action == ACTION_NEW_NOTE) window.decorView.post { openQuickNote() }
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        if (intent?.action == ACTION_NEW_NOTE) openQuickNote()
-    }
-
-    private fun openQuickNote() {
-        if (root() == null) {
-            pendingQuickNote = true
-            Toast.makeText(this, "Choose a vault first", Toast.LENGTH_SHORT).show()
-            pickVault.launch(null)
-            return
-        }
-        showQuickNoteDialog()
-    }
-
-    private fun showQuickNoteDialog() {
-        val input = EditText(this).apply {
-            hint = "Write a note…"
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.LTGRAY)
-            minLines = 5
-            gravity = Gravity.TOP or Gravity.START
-            setPadding(24, 18, 24, 12)
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("New note")
-            .setView(input)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save", null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val text = input.text.toString().trim()
-                if (text.isEmpty()) {
-                    input.error = "Write something first"
-                    return@setOnClickListener
-                }
-                if (createQuickNote(text)) {
-                    dialog.dismiss()
-                    Toast.makeText(this, "Note saved", Toast.LENGTH_SHORT).show()
-                } else input.error = "Could not write to the selected vault"
-            }
-            input.requestFocus()
-            dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
-        }
-        dialog.show()
-    }
-
-    private fun createQuickNote(text: String): Boolean {
-        val directory = root()?.findFile("quick-notes") ?: root()?.createDirectory("quick-notes") ?: return false
-        val stamp = java.text.SimpleDateFormat("yyyy-MM-dd-HHmmss", java.util.Locale.US).format(java.util.Date())
-        val file = directory.createFile("text/markdown", "quick-note-$stamp.md") ?: return false
-        val body = "---\ncreated: ${java.time.Instant.now()}\nsource: livesync-companion\n---\n\n$text\n"
-        return contentResolver.openOutputStream(file.uri, "wt")?.use { it.write(body.toByteArray(Charsets.UTF_8)); true } ?: false
     }
 
     private fun startSyncService() { ContextCompat.startForegroundService(this, Intent(this, SyncForegroundService::class.java)) }
@@ -209,8 +121,6 @@ class MainActivity : AppCompatActivity() {
     private fun list(path: String): JSONArray { val result = JSONArray(); val directory = if (path.trim('/').isEmpty()) root() else fileAt(path, false, true); directory?.listFiles()?.forEach { child -> result.put(JSONObject().apply { put("name", child.name ?: ""); put("kind", if (child.isDirectory) "directory" else "file"); put("path", if (path.trim('/').isEmpty()) child.name ?: "" else "${path.trim('/')}/${child.name}") }) }; return result }
     private fun bytesToBase64(bytes: ByteArray): String = Base64.encodeToString(bytes, Base64.NO_WRAP)
     private fun base64ToBytes(value: String): ByteArray = Base64.decode(value, Base64.DEFAULT)
-
-    companion object { const val ACTION_NEW_NOTE = "com.livesync.companion.NEW_NOTE" }
 
     inner class AndroidFsBridge {
         @JavascriptInterface fun pickVault(callbackId: String) { pendingPickerCallback = callbackId; pickVault.launch(null) }
