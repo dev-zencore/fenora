@@ -22,6 +22,8 @@ Implemented in `0.1.0`:
 - JavaScript-to-Android SAF bridge for picker, list, read, write, mkdir, delete, rename and stat;
 - automatic reuse of the persisted Android vault URI after app restart;
 - native-safe fallback when browser IndexedDB cannot clone an Android-backed directory handle.
+- quick Markdown note creation from the home screen and from the persistent notification;
+- notes saved as timestamped files in the vault's `quick-notes/` folder with a small YAML frontmatter block.
 
 The upstream LiveSync core now runs inside the bundled webapp when the Android activity is open and the vault is selected. CouchDB/object-storage settings are read from the vault's `.livesync/settings.json`, as in the upstream webapp. The Android SAF adapter is the boundary that gives this runtime access to the real vault.
 
@@ -38,6 +40,16 @@ The `specialUse` declaration is intended for the long-running self-hosted synchr
 The app never guesses a filesystem path. The user chooses the vault folder with the Android system picker. The app stores the returned persistent `content://` URI and requests read/write access. This avoids hard-coded paths and works with Android's scoped storage, including `Android/data` restrictions where the system permits access.
 
 The selected URI is the source of truth for the Android SAF adapter. The current bridge implements create/read/write/rename/delete/list/stat operations. Android SAF does not provide a universal recursive change event stream, so the upstream scanner and foreground lifecycle are used instead of claiming perfect filesystem events.
+
+## Quick notes
+
+Tap **New note** on the Android host overlay, or use **New note** in the persistent LiveSync notification. If no vault has been selected, the system folder picker opens first. The note editor is a native Android dialog, so it remains visible above the keyboard. Saving creates a UTF-8 Markdown file at:
+
+```text
+<vault>/quick-notes/quick-note-YYYY-MM-DD-HHmmss.md
+```
+
+The file contains `created` and `source` frontmatter followed by the note text. The name is timestamped to avoid overwriting previous notes.
 
 ## Target architecture
 
