@@ -13,6 +13,8 @@ import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,26 +38,67 @@ class MainActivity : AppCompatActivity() {
         if (uri != null) {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             prefs.edit().putString("vault_uri", uri.toString()).apply()
-            callback?.let { webView.evaluateJavascript("window.__nativeVaultPicked('$it', true)", null) }
             startSyncService()
-            if (::chooseButton.isInitialized) chooseButton.text = "Change vault"
-            if (pendingQuickNote) {
-                pendingQuickNote = false
-                showQuickNoteDialog()
-            }
-            webView.reload()
+            val shouldOpenNote = pendingQuickNote
+            pendingQuickNote = false
+            showLiveSyncScreen()
+            if (shouldOpenNote) window.decorView.post { showQuickNoteDialog() }
         } else callback?.let { webView.evaluateJavascript("window.__nativeVaultPicked('$it', false)", null) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (root() == null) {
+            pendingQuickNote = intent?.action == ACTION_NEW_NOTE
+            showVaultSetupScreen()
+            return
+        }
+        showLiveSyncScreen()
+    }
+
+    private fun showVaultSetupScreen() {
+        val screen = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(36, 36, 36, 36)
+            setBackgroundColor(Color.rgb(15, 15, 15))
+        }
+        val title = TextView(this).apply {
+            text = "LiveSync Companion"
+            textSize = 26f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+        }
+        val message = TextView(this).apply {
+            text = "Choose your Obsidian vault to start synchronization.\n\nAccess stays on this device and can be changed later."
+            textSize = 15f
+            setTextColor(Color.rgb(210, 210, 210))
+            gravity = Gravity.CENTER
+            setPadding(0, 18, 0, 26)
+        }
+        val button = Button(this).apply {
+            text = "Choose vault folder"
+            textSize = 16f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            isClickable = true
+            background = GradientDrawable().apply { setColor(Color.rgb(38, 38, 38)); setStroke(1, Color.rgb(140, 140, 140)); cornerRadius = 18f }
+            setOnClickListener { pendingPickerCallback = null; pickVault.launch(null) }
+        }
+        screen.addView(title, LinearLayout.LayoutParams(-1, -2))
+        screen.addView(message, LinearLayout.LayoutParams(-1, -2))
+        screen.addView(button, LinearLayout.LayoutParams(-1, 58))
+        setContentView(screen)
+    }
+
+    private fun showLiveSyncScreen() {
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
             settings.allowContentAccess = true
             webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) { super.onPageFinished(view, url); evaluateJavascript(NATIVE_FS_POLYFILL, null) }
+                override fun onPageFinished(view: WebView?, url: String?) { super.onPageFinished(view, url); evaluateJavascript(NATIVE_FS_POLYFILL + DARK_THEME_CSS, null) }
             }
             addJavascriptInterface(AndroidFsBridge(), "AndroidBridge")
             setBackgroundColor(0xFF111111.toInt())
@@ -192,5 +235,16 @@ class MainActivity : AppCompatActivity() {
           window.getNativeVaultHandle=async()=>AndroidBridge.hasVault()?new NativeDirectoryHandle('',AndroidBridge.rootName()):null;
           window.showDirectoryPicker=async()=>new Promise(resolve=>{const id=String(Date.now())+String(Math.random());window.__nativePickerCallbacks[id]=resolve;AndroidBridge.pickVault(id);});
         })();
+    """
+
+    private val DARK_THEME_CSS = """
+        (() => { const s=document.createElement('style'); s.textContent=`
+          :root{--background-primary:#111111!important;--background-primary-alt:#1b1b1b!important;--background-secondary:#171717!important;--background-secondary-alt:#202020!important;--background-modifier-border:#363636!important;--text-normal:#f2f2f2!important;--text-warning:#ffffff!important;--text-accent:#ffffff!important;--text-on-accent:#000000!important}
+          body{background:#0b0b0b!important;color:#f2f2f2!important;font-family:system-ui,sans-serif!important}
+          .container,.vault-selector,.p2p-control,.info-section{background:#151515!important;color:#f2f2f2!important;border-color:#333!important;box-shadow:none!important}
+          h1,h2,.vault-selector h2,.vault-item-name{color:#ffffff!important}.subtitle,.vault-selector p,.empty-note,.vault-item-meta,.info-section{color:#bdbdbd!important}
+          .vault-item{background:#1d1d1d!important;border-color:#3b3b3b!important}.info{background:#202020!important;color:#eeeeee!important;border-color:#444!important}
+          button{background:#eeeeee!important;color:#111111!important;border:1px solid #ffffff!important}button:hover{background:#ffffff!important}
+        `;document.head.appendChild(s) })();
     """
 }
